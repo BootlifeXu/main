@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Spotify Song Search</title>
   <style>
-    /* General Styles /
+    /* General Styles */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -15,7 +15,7 @@
       text-align: center;
     }
     h1 {
-      background-color: #1db954; / Spotify Green */
+      background-color: #1db954; /* Spotify Green */
       color: white;
       padding: 20px;
       margin: 0;
@@ -70,65 +70,31 @@
   <input type="text" id="songInput" placeholder="Enter song name">
   <button id="searchBtn">Search</button>
   <div id="results"></div>
-
+  
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <script>
     // Authentication
     const clientId = "bb9289daf80c4dbcb819188ee9af98cb";
     const redirectUri = "https://dazzling-bavarois-ed00a0.netlify.app"; // Replace with your actual redirect URI
-    let accessToken;
-    let refreshToken;
 
-    // Retrieve access and refresh tokens from URL
-    function getTokensFromUrl() {
+    let accessToken;
+
+    // Check if access token is in URL
+    function getAccessToken() {
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
-      accessToken = params.get("access_token");
-      refreshToken = params.get("refresh_token");
+      return params.get("access_token");
     }
 
-    // Save tokens in local storage
-    function saveTokens() {
-      localStorage.setItem("access_token", accessToken);
-      localStorage.setItem("refresh_token", refreshToken);
-    }
-
-    // Load tokens from local storage
-    function loadTokens() {
-      accessToken = localStorage.getItem("access_token");
-      refreshToken = localStorage.getItem("refresh_token");
-    }
-
-    // Authentication function
+    // Authenticate the user
     function authenticate() {
       const scopes = [
         "streaming",
         "user-read-playback-state",
         "user-modify-playback-state"
       ];
-      const authUrl = https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes.join("%20")};
+      const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes.join("%20")}`;
       window.location = authUrl;
-    }
-
-    // Function to refresh the access token
-    async function refreshAccessToken() {
-      const response = await fetch("https://accounts.spotify.com/api/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: Basic ${btoa(clientId + ":" + "your-client-secret")} // Use your client secret here
-        },
-        body: grant_type=refresh_token&refresh_token=${refreshToken}
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        accessToken = data.access_token;
-        saveTokens(); // Save new access token
-        console.log("Access token refreshed.");
-      } else {
-        console.error("Error refreshing access token");
-      }
     }
 
     // Initialize the Spotify Web Playback SDK
@@ -183,7 +149,7 @@
       const response = await fetch("https://api.spotify.com/v1/me/player/play", {
         method: "PUT",
         headers: {
-          Authorization: Bearer ${accessToken},
+          Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ uris: [trackUri] })
@@ -204,21 +170,11 @@
         return;
       }
 
-      // Load access token from local storage
-      loadTokens();
-
-      // If no access token, authenticate
+      // Retrieve access token from URL or authenticate
+      accessToken = getAccessToken();
       if (!accessToken) {
         authenticate();
         return;
-      }
-
-      // If the access token is expired, refresh it
-      const tokenExpirationTime = Date.now() / 1000; // Current timestamp in seconds
-      const tokenExpirationThreshold = 3600; // 1 hour expiration threshold (in seconds)
-
-      if (tokenExpirationTime - parseInt(localStorage.getItem("token_expiration_time")) > tokenExpirationThreshold) {
-        await refreshAccessToken();
       }
 
       // Initialize the player once the access token is available
@@ -232,11 +188,11 @@
 
       tracks.forEach(track => {
         const trackDiv = document.createElement("div");
-        trackDiv.innerHTML = 
+        trackDiv.innerHTML = `
           <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
           <p>Album: ${track.album.name}</p>
           <button onclick="playSong('${track.uri}')">Play</button>
-        ;
+        `;
         resultsDiv.appendChild(trackDiv);
       });
     });
@@ -244,10 +200,10 @@
     // Function to search songs on Spotify API
     async function searchSong(songName, accessToken) {
       const response = await fetch(
-        https://api.spotify.com/v1/search?q=${encodeURIComponent(songName)}&type=track,
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(songName)}&type=track`,
         {
           headers: {
-            Authorization: Bearer ${accessToken}
+            Authorization: `Bearer ${accessToken}`
           }
         }
       );
