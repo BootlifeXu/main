@@ -76,17 +76,30 @@
     // Authentication
     const clientId = "bb9289daf80c4dbcb819188ee9af98cb";
     const redirectUri = "https://dazzling-bavarois-ed00a0.netlify.app"; // Replace with your actual redirect URI
-
     let accessToken;
+    let refreshToken;
 
-    // Check if access token is in URL
-    function getAccessToken() {
+    // Retrieve access and refresh tokens from URL
+    function getTokensFromUrl() {
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
-      return params.get("access_token");
+      accessToken = params.get("access_token");
+      refreshToken = params.get("refresh_token");
     }
 
-    // Authenticate the user
+    // Save tokens in local storage
+    function saveTokens() {
+      localStorage.setItem("access_token", accessToken);
+      localStorage.setItem("refresh_token", refreshToken);
+    }
+
+    // Load tokens from local storage
+    function loadTokens() {
+      accessToken = localStorage.getItem("access_token");
+      refreshToken = localStorage.getItem("refresh_token");
+    }
+
+    // Authentication function
     function authenticate() {
       const scopes = [
         "streaming",
@@ -95,6 +108,27 @@
       ];
       const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes.join("%20")}`;
       window.location = authUrl;
+    }
+
+    // Function to refresh the access token
+    async function refreshAccessToken() {
+      const response = await fetch("https://accounts.spotify.com/api/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${btoa(clientId + ":" + "your-client-secret")}` // Use your client secret here
+        },
+        body: `grant_type=refresh_token&refresh_token=${refreshToken}`
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        accessToken = data.access_token;
+        saveTokens(); // Save new access token
+        console.log("Access token refreshed.");
+      } else {
+        console.error("Error refreshing access token");
+      }
     }
 
     // Initialize the Spotify Web Playback SDK
@@ -170,11 +204,21 @@
         return;
       }
 
-      // Retrieve access token from URL or authenticate
-      accessToken = getAccessToken();
+      // Load access token from local storage
+      loadTokens();
+
+      // If no access token, authenticate
       if (!accessToken) {
         authenticate();
         return;
+      }
+
+      // If the access token is expired, refresh it
+      const tokenExpirationTime = Date.now() / 1000; // Current timestamp in seconds
+      const tokenExpirationThreshold = 3600; // 1 hour expiration threshold (in seconds)
+
+      if (tokenExpirationTime - parseInt(localStorage.getItem("token_expiration_time")) > tokenExpirationThreshold) {
+        await refreshAccessToken();
       }
 
       // Initialize the player once the access token is available
