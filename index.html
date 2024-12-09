@@ -83,7 +83,6 @@
 <script>
   const clientId = 'bb9289daf80c4dbcb819188ee9af98cb'; // Replace with your actual client ID
 const redirectUri = 'https://dazzling-bavarois-ed00a0.netlify.app'; // Replace with your actual redirect URI
-const backendUrl = 'https://your-backend-url'; // Replace with your actual backend URL for token refresh
 
 let accessToken = null;
 let player = null;
@@ -236,7 +235,7 @@ async function searchSong(songName) {
 }
 
 // Page initialization function
-window.onload = async function () {
+window.onload = function () {
   const expiryTime = localStorage.getItem('spotify_token_expiry');
   const isTokenExpired = expiryTime && Date.now() > parseInt(expiryTime);
 
@@ -253,27 +252,6 @@ window.onload = async function () {
   if (accessToken) {
     updateAuthStatus('Cached token found');
     initializeSpotifyPlayer();
-  } else {
-    try {
-      const response = await fetch(`${backendUrl}/refresh-token`);
-      if (!response.ok) {
-        throw new Error('Failed to refresh token');
-      }
-
-      const data = await response.json();
-      accessToken = data.access_token;
-      localStorage.setItem('spotify_access_token', accessToken);
-      localStorage.setItem(
-        'spotify_token_expiry',
-        Date.now() + data.expires_in * 1000
-      );
-
-      updateAuthStatus('Token refreshed successfully');
-      initializeSpotifyPlayer();
-    } catch (error) {
-      updateAuthStatus('Failed to refresh token. Please authenticate again.', true);
-      initiateSpotifyAuth();
-    }
   }
 
   // Event listener for search button
