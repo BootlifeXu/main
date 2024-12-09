@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Spotify Song Search</title>
   <style>
-    /* General Styles */
-    body {
+    /* Previous CSS styles remain the same */
+body {
       font-family: Arial, sans-serif;
       margin: 0;
       padding: 0;
@@ -14,12 +14,14 @@
       color: #333;
       text-align: center;
     }
+
     h1 {
       background-color: #1db954; /* Spotify Green */
       color: white;
       padding: 20px;
       margin: 0;
     }
+
     input[type="text"] {
       padding: 10px;
       width: 50%;
@@ -28,6 +30,7 @@
       margin-bottom: 20px;
       font-size: 16px;
     }
+
     button {
       padding: 10px 20px;
       background-color: #1db954;
@@ -37,9 +40,11 @@
       cursor: pointer;
       font-size: 16px;
     }
+
     button:hover {
       background-color: #159443;
     }
+
     #results {
       margin: 20px auto;
       max-width: 800px;
@@ -48,6 +53,7 @@
       gap: 20px;
       justify-content: center;
     }
+
     #results div {
       background: white;
       border: 1px solid #ddd;
@@ -56,10 +62,12 @@
       padding: 15px;
       width: 300px;
     }
+
     #results p {
       margin: 5px 0;
       font-size: 14px;
     }
+
     iframe {
       border-radius: 5px;
     }
@@ -73,165 +81,143 @@
   
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <script>
-    // Authentication
+    // Authentication Configuration
     const clientId = "bb9289daf80c4dbcb819188ee9af98cb";
-    const redirectUri = "https://dazzling-bavarois-ed00a0.netlify.app"; // Replace with your actual redirect URI
-    let accessToken;
-    let refreshToken;
+    const redirectUri = "https://dazzling-bavarois-ed00a0.netlify.app";
+    
+    // Global variables
+    let accessToken = null;
+    let deviceId = null;
 
-    // Retrieve access and refresh tokens from URL
-    function getTokensFromUrl() {
-      const hash = window.location.hash.substring(1);
-      const params = new URLSearchParams(hash);
-      accessToken = params.get("access_token");
-      refreshToken = params.get("refresh_token");
-    }
+    // Check for tokens in URL on page load
+    window.onload = function() {
+      // Check if we've just returned from Spotify authentication
+      if (window.location.hash.includes('access_token')) {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        accessToken = hashParams.get('access_token');
+        
+        // Store token in localStorage
+        localStorage.setItem('spotify_access_token', accessToken);
+        
+        // Remove the hash to clean up the URL
+        window.history.replaceState(null, null, window.location.pathname);
+      } else {
+        // Try to retrieve token from localStorage
+        accessToken = localStorage.getItem('spotify_access_token');
+      }
 
-    // Save tokens in local storage
-    function saveTokens() {
-      localStorage.setItem("access_token", accessToken);
-      localStorage.setItem("refresh_token", refreshToken);
-    }
+      // If no token, prompt authentication
+      if (!accessToken) {
+        initiateSpotifyAuthentication();
+      }
+    };
 
-    // Load tokens from local storage
-    function loadTokens() {
-      accessToken = localStorage.getItem("access_token");
-      refreshToken = localStorage.getItem("refresh_token");
-    }
-
-    // Authentication function
-    function authenticate() {
+    // Initiate Spotify Authentication
+    function initiateSpotifyAuthentication() {
       const scopes = [
-        "streaming",
-        "user-read-playback-state",
-        "user-modify-playback-state"
+        'user-read-playback-state',
+        'user-modify-playback-state',
+        'streaming'
       ];
-      const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes.join("%20")}`;
+      const authUrl = `https://accounts.spotify.com/authorize?` +
+        `client_id=${clientId}` +
+        `&response_type=token` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&scope=${encodeURIComponent(scopes.join(' '))}`;
+      
       window.location = authUrl;
     }
 
-    // Function to refresh the access token
-    async function refreshAccessToken() {
-      const response = await fetch("https://accounts.spotify.com/api/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${btoa(clientId + ":" + "your-client-secret")}` // Use your client secret here
-        },
-        body: `grant_type=refresh_token&refresh_token=${refreshToken}`
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        accessToken = data.access_token;
-        saveTokens(); // Save new access token
-        console.log("Access token refreshed.");
-      } else {
-        console.error("Error refreshing access token");
-      }
-    }
-
-    // Initialize the Spotify Web Playback SDK
-    function initializePlayer() {
-      if (!accessToken) {
-        console.error("Access token not found. Please authenticate.");
-        return;
-      }
+    // Initialize Spotify Player
+    function initializeSpotifyPlayer() {
+      if (!window.Spotify || !accessToken) return;
 
       const player = new Spotify.Player({
-        name: "Web Playback SDK",
-        getOAuthToken: cb => {
-          cb(accessToken);
-        }
+        name: 'Web Playback SDK',
+        getOAuthToken: cb => { cb(accessToken); }
       });
 
-      // Error handling
-      player.addListener("initialization_error", ({ message }) => {
-        console.error(message);
-      });
-      player.addListener("authentication_error", ({ message }) => {
-        console.error(message);
-      });
-      player.addListener("account_error", ({ message }) => {
-        console.error(message);
-      });
-      player.addListener("playback_error", ({ message }) => {
-        console.error(message);
+      player.addListener('ready', ({ device_id }) => {
+        console.log('Ready with Device ID', device_id);
+        deviceId = device_id;
       });
 
-      // Playback state
-      player.addListener("player_state_changed", state => {
-        console.log(state);
-      });
-
-      // Ready to connect
-      player.addListener("ready", ({ device_id }) => {
-        console.log("Ready with Device ID", device_id);
-      });
-
-      // Connect to the player
       player.connect();
     }
 
-    // Play the song using the Web Playback SDK
+    // Play a track
     async function playSong(trackUri) {
-      if (!accessToken) {
-        alert("You must authenticate first.");
+      if (!accessToken || !deviceId) {
+        alert('Please authenticate and ensure player is initialized');
         return;
       }
 
-      const response = await fetch("https://api.spotify.com/v1/me/player/play", {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ uris: [trackUri] })
-      });
+      try {
+        const response = await fetch('https://api.spotify.com/v1/me/player/play', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            device_ids: [deviceId],
+            uris: [trackUri]
+          })
+        });
 
-      if (response.ok) {
-        console.log("Playing:", trackUri);
-      } else {
-        console.error("Error playing track:", await response.json());
+        if (!response.ok) {
+          throw new Error('Failed to play track');
+        }
+      } catch (error) {
+        console.error('Playback error:', error);
+        alert('Could not play the song. Please check your Spotify setup.');
       }
     }
 
-    // Main flow when the search button is clicked
-    document.getElementById("searchBtn").addEventListener("click", async () => {
-      const songName = document.getElementById("songInput").value;
-      if (!songName) {
-        alert("Please enter a song name");
-        return;
-      }
-
-      // Load access token from local storage
-      loadTokens();
-
-      // If no access token, authenticate
+    // Search for tracks
+    async function searchSong(songName) {
       if (!accessToken) {
-        authenticate();
+        alert('Please authenticate first');
+        return [];
+      }
+
+      try {
+        const response = await fetch(
+          `https://api.spotify.com/v1/search?q=${encodeURIComponent(songName)}&type=track`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Search failed');
+        }
+
+        const data = await response.json();
+        return data.tracks.items;
+      } catch (error) {
+        console.error('Search error:', error);
+        alert('Could not search for songs. Please check your authentication.');
+        return [];
+      }
+    }
+
+    // Event Listeners
+    document.getElementById('searchBtn').addEventListener('click', async () => {
+      const songName = document.getElementById('songInput').value;
+      if (!songName) {
+        alert('Please enter a song name');
         return;
       }
 
-      // If the access token is expired, refresh it
-      const tokenExpirationTime = Date.now() / 1000; // Current timestamp in seconds
-      const tokenExpirationThreshold = 3600; // 1 hour expiration threshold (in seconds)
-
-      if (tokenExpirationTime - parseInt(localStorage.getItem("token_expiration_time")) > tokenExpirationThreshold) {
-        await refreshAccessToken();
-      }
-
-      // Initialize the player once the access token is available
-      initializePlayer();
-
-      // Search for the song
-      const tracks = await searchSong(songName, accessToken);
-
-      const resultsDiv = document.getElementById("results");
-      resultsDiv.innerHTML = "";
+      const tracks = await searchSong(songName);
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
 
       tracks.forEach(track => {
-        const trackDiv = document.createElement("div");
+        const trackDiv = document.createElement('div');
         trackDiv.innerHTML = `
           <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
           <p>Album: ${track.album.name}</p>
@@ -239,21 +225,10 @@
         `;
         resultsDiv.appendChild(trackDiv);
       });
-    });
 
-    // Function to search songs on Spotify API
-    async function searchSong(songName, accessToken) {
-      const response = await fetch(
-        `https://api.spotify.com/v1/search?q=${encodeURIComponent(songName)}&type=track`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`
-          }
-        }
-      );
-      const data = await response.json();
-      return data.tracks.items;
-    }
+      // Initialize player after successful search
+      initializeSpotifyPlayer();
+    });
   </script>
 </body>
 </html>
