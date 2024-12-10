@@ -140,11 +140,29 @@
     let searchCache = {};  // Cache for search results
     let debounceTimer;
 
-    function updateAuthStatus(message, isError = false) {
-      const statusEl = document.getElementById('auth-status');
-      statusEl.textContent = message;
-      statusEl.className = isError ? 'error' : '';
+    function updateAuthStatus(message, isError = false, duration = 0) {
+  const statusEl = document.getElementById('auth-status');
+  statusEl.textContent = message;
+  statusEl.className = isError ? 'error' : '';
+
+  if (duration > 0) {
+    // Hide the message after the specified duration (in milliseconds)
+    setTimeout(() => {
+      statusEl.textContent = '';
+    }, duration);
+  }
+}
+
+window.onload = function () {
+  if (!parseAccessToken()) {
+    accessToken = localStorage.getItem('spotify_access_token');
+    if (accessToken) {
+      updateAuthStatus('Cached token found', false, 2000); // Show message for 2 seconds
+    } else {
+      updateAuthStatus('Please authenticate', true);
     }
+  }
+};
 
     function initiateSpotifyAuth() {
       const scopes = ['user-library-read'];
