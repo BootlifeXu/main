@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Spotify Song Search and Playback</title>
   <style>
+    /* Existing styles remain the same */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -136,6 +137,8 @@
     const clientId = 'cc1434a8593d4c71b9ad56af9b578d98';
     const redirectUri = 'https://dazzling-bavarois-ed00a0.netlify.app';
     let accessToken = null;
+    let searchCache = {};  // Cache for search results
+    let debounceTimer;
 
     function updateAuthStatus(message, isError = false) {
       const statusEl = document.getElementById('auth-status');
@@ -144,7 +147,7 @@
     }
 
     function initiateSpotifyAuth() {
-      const scopes = ['user-library-read', 'user-library-modify', 'playlist-read-private'];
+      const scopes = ['user-library-read'];
       const authUrl = `https://accounts.spotify.com/authorize?` +
         `client_id=${clientId}` +
         `&response_type=token` +
@@ -236,57 +239,57 @@
     }
 
     async function searchSongs(query) {
-      if (!checkTokenValidity()) {
-        return [];
+      if (searchCache[query]) {
+        return searchCache[query];  // Return from cache if already searched
       }
 
-      try {
-        const response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to search songs');
+      const response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
         }
+      });
 
-        const data = await response.json();
-        return data.tracks.items;
-      } catch (error) {
-        updateAuthStatus('Error searching songs: ' + error.message, true);
-        return [];
-      }
+      const data = await response.json();
+      searchCache[query] = data.tracks.items;  // Cache the result
+      return data.tracks.items;
     }
 
-    async function displaySearchResults(query) {
+    function displaySearchResults(query) {
       const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = '<p>Searching...</p>';
-
-      const songs = await searchSongs(query);
-      if (songs.length === 0) {
-        resultsDiv.innerHTML = '<p>No songs found</p>';
-        return;
-      }
-
       resultsDiv.innerHTML = ''; // Clear previous results
-      songs.forEach(song => {
-        const songDiv = document.createElement('div');
-        songDiv.innerHTML = `
-          <p><strong>${song.name}</strong> by ${song.artists.map(artist => artist.name).join(", ")}</p>
-          <p>Album: ${song.album.name}</p>
-        `;
 
-        const iframe = document.createElement('iframe');
-        iframe.src = `https://open.spotify.com/embed/track/${song.id}`;
-        iframe.width = '100%';
-        iframe.height = '80';
-        iframe.frameBorder = '0';
-iframe.allow = 'encrypted-media';
+      searchSongs(query).then(tracks => {
+        if (tracks.length === 0) {
+          resultsDiv.innerHTML = '<p>No tracks found</p>';
+          return;
+        }
 
-        songDiv.appendChild(iframe);
-        resultsDiv.appendChild(songDiv);
+        tracks.forEach(track => {
+          const trackDiv = document.createElement('div');
+          trackDiv.innerHTML = `
+            <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
+            <p>Album: ${track.album.name}</p>
+          `;
+
+          const iframe = document.createElement('iframe');
+          iframe.src = `https://open.spotify.com/embed/track/${track.id}`;
+          iframe.width = '100%';
+          iframe.height = '80';
+          iframe.frameBorder = '0';
+          iframe.allow = 'encrypted-media';
+
+          trackDiv.appendChild(iframe);
+          resultsDiv.appendChild(trackDiv);
+        });
       });
+    }
+
+    // Debounce function to limit API calls when typing
+    function debounce(func, delay) {
+      return function (...args) {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => func.apply(this, args), delay);
+      };
     }
 
     // Event Listeners
@@ -307,6 +310,13 @@ iframe.allow = 'encrypted-media';
         updateAuthStatus('Please enter a song name to search.', true);
       }
     });
+
+    document.getElementById('songInput').addEventListener('input', debounce(function () {
+      const query = document.getElementById('songInput').value;
+      if (query) {
+        displaySearchResults(query);
+      }
+    }, 300));  // Wait 300ms after the user stops typing
 
     // On Page Load
     window.onload = function () {
