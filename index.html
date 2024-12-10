@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,6 +19,46 @@
       color: white;
       padding: 20px;
       margin: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .menu {
+      position: relative;
+    }
+
+    .menu-icon {
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    .menu-options {
+      display: none;
+      position: absolute;
+      right: 10px;
+      top: 50px;
+      background-color: white;
+      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+      border-radius: 5px;
+      padding: 10px;
+    }
+
+    .menu-options button {
+      padding: 10px;
+      background-color: #1db954;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-bottom: 5px;
+      display: block;
+      width: 100%;
+    }
+
+    .menu-options button:hover {
+      background-color: #159443;
     }
 
     input[type="text"] {
@@ -79,155 +118,144 @@
   </style>
 </head>
 <body>
-  <h1>JEROME R.</h1>
+  <h1>
+    JEROME R.
+    <div class="menu">
+      <span class="menu-icon">☰</span>
+      <div class="menu-options">
+        <button id="showSavedTracks">Saved Tracks</button>
+      </div>
+    </div>
+  </h1>
   <div id="auth-status"></div>
   <input type="text" id="songInput" placeholder="Enter song name">
   <button id="searchBtn">Search</button>
   <div id="results"></div>
 
   <script>
-const clientId = 'cc1434a8593d4c71b9ad56af9b578d98'; // Replace with your actual Spotify Client ID
-const redirectUri = 'https://dazzling-bavarois-ed00a0.netlify.app'; // Replace with your actual Redirect URI
-let accessToken = null;
+    const clientId = 'cc1434a8593d4c71b9ad56af9b578d98';
+    const redirectUri = 'https://dazzling-bavarois-ed00a0.netlify.app';
+    let accessToken = null;
 
-function updateAuthStatus(message, isError = false) {
-  const statusEl = document.getElementById('auth-status');
-  statusEl.textContent = message;
-  statusEl.className = isError ? 'error' : '';
-}
+    function updateAuthStatus(message, isError = false) {
+      const statusEl = document.getElementById('auth-status');
+      statusEl.textContent = message;
+      statusEl.className = isError ? 'error' : '';
+    }
 
-function initiateSpotifyAuth() {
-  const scopes = [
-    'user-read-playback-state',
-    'user-modify-playback-state',
-    'streaming',
-    'user-read-currently-playing',
-    'user-library-read',
-  ];
-  const authUrl = `https://accounts.spotify.com/authorize?` +
-    `client_id=${clientId}` +
-    `&response_type=token` +
-    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&scope=${encodeURIComponent(scopes.join(' '))}` +
-    `&show_dialog=true`;
-  window.location.href = authUrl;
-}
+    function initiateSpotifyAuth() {
+      const scopes = ['user-library-read'];
+      const authUrl = `https://accounts.spotify.com/authorize?` +
+        `client_id=${clientId}` +
+        `&response_type=token` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&scope=${encodeURIComponent(scopes.join(' '))}` +
+        `&show_dialog=true`;
+      window.location.href = authUrl;
+    }
 
-function parseAccessToken() {
-  const hash = window.location.hash.substring(1);
-  const params = new URLSearchParams(hash);
-  const token = params.get('access_token');
-  const expiresIn = params.get('expires_in');
+    function parseAccessToken() {
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const token = params.get('access_token');
+      const expiresIn = params.get('expires_in');
 
-  if (token) {
-    accessToken = token;
-    localStorage.setItem('spotify_access_token', token);
-    localStorage.setItem('spotify_token_expiry', Date.now() + expiresIn * 1000);
-    window.history.replaceState(null, null, window.location.pathname);
-    updateAuthStatus('Successfully authenticated');
-    return true;
-  }
-  return false;
-}
+      if (token) {
+        accessToken = token;
+        localStorage.setItem('spotify_access_token', token);
+        localStorage.setItem('spotify_token_expiry', Date.now() + expiresIn * 1000);
+        window.history.replaceState(null, null, window.location.pathname);
+        updateAuthStatus('Successfully authenticated');
+        return true;
+      }
+      return false;
+    }
 
-function checkTokenValidity() {
-  const tokenExpiry = localStorage.getItem('spotify_token_expiry');
-  if (!accessToken || (tokenExpiry && Date.now() > parseInt(tokenExpiry))) {
-    updateAuthStatus('Token expired. Reauthenticating...', true);
-    initiateSpotifyAuth();
-    return false;
-  }
-  return true;
-}
+    function checkTokenValidity() {
+      const tokenExpiry = localStorage.getItem('spotify_token_expiry');
+      if (!accessToken || (tokenExpiry && Date.now() > parseInt(tokenExpiry))) {
+        updateAuthStatus('Token expired. Reauthenticating...', true);
+        initiateSpotifyAuth();
+        return false;
+      }
+      return true;
+    }
 
-async function searchSong(songName) {
-  if (!checkTokenValidity()) {
-    return [];
-  }
+    async function getSavedTracks() {
+      if (!checkTokenValidity()) {
+        return [];
+      }
 
-  try {
-    const response = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(songName)}&type=track&limit=10`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
+      try {
+        const response = await fetch('https://api.spotify.com/v1/me/tracks?limit=10', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch saved tracks');
+        }
+
+        const data = await response.json();
+        return data.items.map(item => item.track);
+      } catch (error) {
+        updateAuthStatus('Error fetching saved tracks: ' + error.message, true);
+        return [];
+      }
+    }
+
+    async function fetchAndDisplaySavedTracks() {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '<p>Loading saved tracks...</p>';
+
+      const tracks = await getSavedTracks();
+      if (tracks.length === 0) {
+        resultsDiv.innerHTML = '<p>No saved tracks found</p>';
+        return;
+      }
+
+      resultsDiv.innerHTML = ''; // Clear previous results
+      tracks.forEach(track => {
+        const trackDiv = document.createElement('div');
+        trackDiv.innerHTML = `
+          <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
+          <p>Album: ${track.album.name}</p>
+        `;
+
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://open.spotify.com/embed/track/${track.id}`;
+        iframe.width = '100%';
+        iframe.height = '80';
+        iframe.frameBorder = '0';
+        iframe.allow = 'encrypted-media';
+
+        trackDiv.appendChild(iframe);
+        resultsDiv.appendChild(trackDiv);
+      });
+    }
+
+    // Event Listeners
+    document.querySelector('.menu-icon').addEventListener('click', () => {
+      const menuOptions = document.querySelector('.menu-options');
+      menuOptions.style.display = menuOptions.style.display === 'block' ? 'none' : 'block';
+    });
+
+    document.getElementById('showSavedTracks').addEventListener('click', async () => {
+      await fetchAndDisplaySavedTracks();
+    });
+
+    // On Page Load
+    window.onload = function () {
+      if (!parseAccessToken()) {
+        accessToken = localStorage.getItem('spotify_access_token');
+        if (accessToken) {
+          updateAuthStatus('Cached token found');
+        } else {
+          updateAuthStatus('Please authenticate', true);
         }
       }
-    );
-
-    if (!response.ok) {
-      const responseText = await response.text();
-      console.error('Search Error Details:', responseText);
-      throw new Error('Search failed');
-    }
-
-    const data = await response.json();
-    return data.tracks.items;
-  } catch (error) {
-    updateAuthStatus('Search error: ' + error.message, true);
-    return [];
-  }
-}
-
-function createEmbedPlayer(track) {
-  const iframe = document.createElement('iframe');
-  iframe.src = `https://open.spotify.com/embed/track/${track.id}`;
-  iframe.width = '300';
-  iframe.height = '80';
-  iframe.frameBorder = '0';
-  iframe.allow = 'encrypted-media';
-  
-  // For mobile users, add Spotify app link fallback
-  const mobileLink = document.createElement('a');
-  mobileLink.href = `spotify:track:${track.id}`;
-  mobileLink.textContent = 'Open in Spotify';
-  mobileLink.style.display = 'block';
-
-  const container = document.createElement('div');
-  container.appendChild(iframe);
-
-  // Check for mobile and append fallback
-  if (/Mobi|Android/i.test(navigator.userAgent)) {
-    container.appendChild(mobileLink);
-  }
-
-  return container;
-}
-
-window.onload = function() {
-  if (!parseAccessToken()) {
-    accessToken = localStorage.getItem('spotify_access_token');
-    if (accessToken) {
-      updateAuthStatus('Cached token found');
-    } else {
-      updateAuthStatus('Please authenticate', true);
-    }
-  }
-
-  document.getElementById('searchBtn').addEventListener('click', async () => {
-    const songName = document.getElementById('songInput').value;
-    if (!songName) {
-      updateAuthStatus('Please enter a song name', true);
-      return;
-    }
-
-    const tracks = await searchSong(songName);
-    const resultsDiv = document.getElementById('results');
-    resultsDiv.innerHTML = ''; // Clear previous results
-
-    tracks.forEach(track => {
-      const trackDiv = document.createElement('div');
-      trackDiv.innerHTML = `
-        <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
-        <p>Album: ${track.album.name}</p>
-      `;
-      // Add Embed Player
-      const embedPlayer = createEmbedPlayer(track);
-      trackDiv.appendChild(embedPlayer);
-      resultsDiv.appendChild(trackDiv);
-    });
-  });
-};
+    };
   </script>
 </body>
 </html>
