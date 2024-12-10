@@ -99,11 +99,13 @@
     }
 
     function initiateSpotifyAuth() {
-      const scopes = [
-        'user-read-playback-state',
-        'user-modify-playback-state',
-        'streaming'
-      ];
+     const scopes = [
+  'streaming',
+  'user-read-playback-state',
+  'user-modify-playback-state',
+  'user-read-currently-playing',
+];
+
       const authUrl = `https://accounts.spotify.com/authorize?` +
         `client_id=${clientId}` +
         `&response_type=token` +
