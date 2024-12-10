@@ -100,31 +100,60 @@
 
     function initiateSpotifyAuth() {
       const scopes = [
-        'user-read-playback-state',
-        'user-modify-playback-state',
-        'streaming',
-      ];
+  'user-read-private',
+  'user-read-email',
+  'user-read-playback-state',
+  'user-modify-playback-state',
+  'streaming'
+];
+
       const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}` +
         `&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}` +
         `&scope=${encodeURIComponent(scopes.join(' '))}&show_dialog=true`;
       window.location.href = authUrl;
     }
 
-    function parseAccessToken() {
-      const hash = window.location.hash.substring(1);
-      const params = new URLSearchParams(hash);
-      const token = params.get('access_token');
+   function parseAccessToken() {
+  const hash = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  const token = params.get('access_token');
+  const expiresIn = params.get('expires_in');
 
-      if (token) {
-        accessToken = token;
-        localStorage.setItem('spotify_access_token', token);
-        window.history.replaceState(null, null, window.location.pathname);
-        updateAuthStatus('Successfully authenticated');
-        initializeSpotifyPlayer();
-        return true;
-      }
-      return false;
+  if (token) {
+    accessToken = token;
+    localStorage.setItem('spotify_access_token', token);
+    localStorage.setItem('spotify_token_expiry', Date.now() + expiresIn * 1000);
+    window.history.replaceState(null, null, window.location.pathname);
+    updateAuthStatus('Successfully authenticated');
+    initializeSpotifyPlayer();
+    return true;
+  }
+  return false;
+}
+
+function checkTokenExpiry() {
+  const expiry = localStorage.getItem('spotify_token_expiry');
+  if (!expiry || Date.now() > expiry) {
+    localStorage.removeItem('spotify_access_token');
+    localStorage.removeItem('spotify_token_expiry');
+    updateAuthStatus('Token expired, re-authenticating...');
+    initiateSpotifyAuth();
+  }
+}
+
+window.onload = function() {
+  checkTokenExpiry();
+  if (!parseAccessToken()) {
+    accessToken = localStorage.getItem('spotify_access_token');
+    if (accessToken) {
+      updateAuthStatus('Cached token found');
+      initializeSpotifyPlayer();
+    } else {
+      updateAuthStatus('Please authenticate', true);
     }
+  }
+};
+
 
     function initializeSpotifyPlayer() {
       if (!accessToken) {
