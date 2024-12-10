@@ -5,268 +5,139 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Spotify Song Search</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f4f4f9;
-      color: #333;
-      text-align: center;
-    }
+      /* General Styles */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f4f4f9;
+  color: #333;
+  text-align: center;
+}
 
-    h1 {
-      background-color: #1db954;
-      color: white;
-      padding: 20px;
-      margin: 0;
-    }
+h1 {
+  background-color: #1db954; /* Spotify Green */
+  color: white;
+  padding: 20px;
+  margin: 0;
+}
 
-    input[type="text"] {
-      padding: 10px;
-      width: 50%;
-      border: 2px solid #1db954;
-      border-radius: 5px;
-      margin-bottom: 20px;
-      font-size: 16px;
-    }
+input[type="text"] {
+  padding: 10px;
+  width: 50%;
+  border: 2px solid #1db954;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  font-size: 16px;
+}
 
-    button {
-      padding: 10px 20px;
-      background-color: #1db954;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 16px;
-    }
+button {
+  padding: 10px 20px;
+  background-color: #1db954;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
 
-    button:hover {
-      background-color: #159443;
-    }
+button:hover {
+  background-color: #159443;
+}
 
-    #results {
-      margin: 20px auto;
-      max-width: 800px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      justify-content: center;
-    }
+#results {
+  margin: 20px auto;
+  max-width: 800px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+}
 
-    #results div {
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-      padding: 15px;
-      width: 300px;
-    }
+#results div {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  padding: 15px;
+  width: 300px;
+}
 
-    #results p {
-      margin: 5px 0;
-      font-size: 14px;
-    }
+#results p {
+  margin: 5px 0;
+  font-size: 14px;
+}
 
-    iframe {
-      border-radius: 5px;
-    }
-    .error { color: red; margin: 10px; }
+iframe {
+  border-radius: 5px;
+}
   </style>
 </head>
 <body>
   <h1>Spotify Song Search</h1>
-  <div id="auth-status"></div>
   <input type="text" id="songInput" placeholder="Enter song name">
   <button id="searchBtn">Search</button>
   <div id="results"></div>
-  <script src="https://sdk.scdn.co/spotify-player.js"></script>
-<script>
-  const clientId = 'bb9289daf80c4dbcb819188ee9af98cb';
-const redirectUri = 'https://dazzling-bavarois-ed00a0.netlify.app';
 
-let accessToken = null;
-let player = null;
-let deviceId = null;
+  <script>
+      async function getAccessToken() {
+  const clientId = "bb9289daf80c4dbcb819188ee9af98cb";
+  const clientSecret = "de0227d89c8d4edfb8e94b1d83f7610b";
 
-function updateAuthStatus(message, isError = false) {
-  const statusEl = document.getElementById('auth-status');
-  statusEl.textContent = message;
-  statusEl.className = isError ? 'error' : '';
+  const response = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: Basic ${btoa(clientId + ":" + clientSecret)}
+    },
+    body: "grant_type=client_credentials"
+  });
+
+  const data = await response.json();
+  return data.access_token;
 }
 
-function initiateSpotifyAuth() {
-  const scopes = [
-    'user-read-playback-state',
-    'user-modify-playback-state',
-    'streaming'
-  ];
+async function searchSong(songName, accessToken) {
+  const response = await fetch(https://api.spotify.com/v1/search?q=${encodeURIComponent(songName)}&type=track, {
+    headers: {
+      Authorization: Bearer ${accessToken}
+    }
+  });
 
-  const authUrl = `https://accounts.spotify.com/authorize?` +
-    `client_id=${clientId}` +
-    `&response_type=token` +
-    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&scope=${encodeURIComponent(scopes.join(' '))}` +
-    `&show_dialog=true`;
-
-  window.location.href = authUrl;
+  const data = await response.json();
+  return data.tracks.items;
 }
 
-function parseAccessToken() {
-  const hash = window.location.hash.substring(1);
-  const params = new URLSearchParams(hash);
-  const token = params.get('access_token');
-
-  if (token) {
-    accessToken = token;
-    localStorage.setItem('spotify_access_token', token);
-    window.history.replaceState(null, null, window.location.pathname);
-    updateAuthStatus('Successfully authenticated');
-    return true;
-  }
-  return false;
-}
-
-function initializeSpotifyPlayer() {
-  if (!accessToken) {
-    updateAuthStatus('No access token available', true);
+document.getElementById("searchBtn").addEventListener("click", async () => {
+  const songName = document.getElementById("songInput").value;
+  if (!songName) {
+    alert("Please enter a song name");
     return;
   }
 
-  if (player) {
-    player.disconnect();
-  }
+  const accessToken = await getAccessToken();
+  const tracks = await searchSong(songName, accessToken);
 
-  player = new Spotify.Player({
-    name: 'Web Playback SDK Quick Search',
-    getOAuthToken: cb => { cb(accessToken); }
+  const resultsDiv = document.getElementById("results");
+  resultsDiv.innerHTML = ""; // Clear previous results
+
+  tracks.forEach(track => {
+    const trackDiv = document.createElement("div");
+    trackDiv.innerHTML = 
+      <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
+      <p>Album: ${track.album.name}</p>
+      <iframe
+        src="https://open.spotify.com/embed/track/${track.id}"
+        width="300"
+        height="80"
+        frameborder="0"
+        allowtransparency="true"
+        allow="encrypted-media">
+      </iframe>
+    ;
+    resultsDiv.appendChild(trackDiv);
   });
-
-  player.addListener('ready', ({ device_id }) => {
-    deviceId = device_id;
-    updateAuthStatus(`Player ready. Device ID: ${deviceId}`);
-  });
-
-  player.addListener('not_ready', () => {
-    updateAuthStatus('Player not ready', true);
-  });
-
-  player.addListener('initialization_error', ({ message }) => {
-    updateAuthStatus(`Player initialization error: ${message}`, true);
-  });
-
-  player.connect().then(success => {
-    if (success) {
-      updateAuthStatus('Spotify player connected');
-    } else {
-      updateAuthStatus('Failed to connect player', true);
-    }
-  });
-}
-
-async function playSong(trackUri) {
-  if (!accessToken) {
-    updateAuthStatus('Authentication required', true);
-    initiateSpotifyAuth();
-    return;
-  }
-
-  if (!deviceId) {
-    updateAuthStatus('Spotify player not initialized', true);
-    return;
-  }
-
-  try {
-    const response = await fetch('https://api.spotify.com/v1/me/player/play', {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        uris: [trackUri]
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Playback failed');
-    }
-    updateAuthStatus('Now playing');
-  } catch (error) {
-    updateAuthStatus('Playback error: ' + error.message, true);
-  }
-}
-
-async function searchSong(songName) {
-  if (!accessToken) {
-    updateAuthStatus('Authentication required', true);
-    initiateSpotifyAuth();
-    return [];
-  }
-
-  try {
-    const response = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(songName)}&type=track&limit=10`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Search failed');
-    }
-
-    const data = await response.json();
-    return data.tracks.items;
-  } catch (error) {
-    updateAuthStatus('Search error: ' + error.message, true);
-    return [];
-  }
-}
-
-window.onload = function() {
-  if (!parseAccessToken()) {
-    accessToken = localStorage.getItem('spotify_access_token');
-
-    if (accessToken) {
-      updateAuthStatus('Cached token found');
-      initializeSpotifyPlayer();
-    } else {
-      updateAuthStatus('Please authenticate', true);
-    }
-  }
-
-  document.getElementById('searchBtn').addEventListener('click', async () => {
-    const songName = document.getElementById('songInput').value;
-    if (!songName) {
-      updateAuthStatus('Please enter a song name', true);
-      return;
-    }
-
-    // Ensure player is initialized before searching
-    if (!player) {
-      initializeSpotifyPlayer();
-    }
-
-    const tracks = await searchSong(songName);
-    const resultsDiv = document.getElementById('results');
-    resultsDiv.innerHTML = '';
-
-    tracks.forEach(track => {
-      const trackDiv = document.createElement('div');
-      trackDiv.innerHTML = `
-        <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
-        <p>Album: ${track.album.name}</p>
-        <button onclick="playSong('${track.uri}')">Play</button>
-      `;
-      resultsDiv.appendChild(trackDiv);
-    });
-  });
-};
-
-window.initiateSpotifyAuth = initiateSpotifyAuth;
-window.playSong = playSong;
-</script>
+});
+  </script>
 </body>
 </html>
