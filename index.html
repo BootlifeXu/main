@@ -99,14 +99,11 @@
     }
 
     function initiateSpotifyAuth() {
-     const scopes = [
-  'user-read-playback-state',
-  'user-modify-playback-state',
-  'streaming',
-  'user-read-currently-playing',
-  'user-library-read',
-];
-
+      const scopes = [
+        'user-read-playback-state',
+        'user-modify-playback-state',
+        'streaming'
+      ];
       const authUrl = `https://accounts.spotify.com/authorize?` +
         `client_id=${clientId}` +
         `&response_type=token` +
@@ -199,6 +196,7 @@
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
+            device_ids: [deviceId],
             uris: [trackUri]
           })
         });
