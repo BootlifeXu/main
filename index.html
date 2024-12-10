@@ -86,7 +86,7 @@
 
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <script>
-    const clientId = 'bb9289daf80c4dbcb819188ee9af98cba'; // Replace with your actual Spotify Client ID
+    const clientId = 'bb9289daf80c4dbcb819188ee9af98cb'; // Replace with your actual Spotify Client ID
     const redirectUri = 'https://dazzling-bavarois-ed00a0.netlify.app'; // Replace with your actual Redirect URI
     let accessToken = null;
     let player = null;
@@ -100,14 +100,10 @@
 
     function initiateSpotifyAuth() {
       const scopes = [
-  'user-read-playback-state',
-  'user-modify-playback-state',
-  'streaming',
-  'user-read-currently-playing',
-  'user-read-recently-played',
-  'user-library-read',
-];
-
+        'user-read-playback-state',
+        'user-modify-playback-state',
+        'streaming'
+      ];
       const authUrl = `https://accounts.spotify.com/authorize?` +
         `client_id=${clientId}` +
         `&response_type=token` +
