@@ -86,7 +86,7 @@
   <div id="results"></div>
 
   <script>
-   const clientId = 'cc1434a8593d4c71b9ad56af9b578d98'; // Replace with your actual Spotify Client ID
+const clientId = 'cc1434a8593d4c71b9ad56af9b578d98'; // Replace with your actual Spotify Client ID
 const redirectUri = 'https://dazzling-bavarois-ed00a0.netlify.app'; // Replace with your actual Redirect URI
 let accessToken = null;
 
@@ -176,7 +176,22 @@ function createEmbedPlayer(track) {
   iframe.height = '80';
   iframe.frameBorder = '0';
   iframe.allow = 'encrypted-media';
-  return iframe;
+  
+  // For mobile users, add Spotify app link fallback
+  const mobileLink = document.createElement('a');
+  mobileLink.href = `spotify:track:${track.id}`;
+  mobileLink.textContent = 'Open in Spotify';
+  mobileLink.style.display = 'block';
+
+  const container = document.createElement('div');
+  container.appendChild(iframe);
+
+  // Check for mobile and append fallback
+  if (/Mobi|Android/i.test(navigator.userAgent)) {
+    container.appendChild(mobileLink);
+  }
+
+  return container;
 }
 
 window.onload = function() {
@@ -213,7 +228,6 @@ window.onload = function() {
     });
   });
 };
-
   </script>
 </body>
 </html>
