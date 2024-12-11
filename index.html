@@ -75,6 +75,51 @@
       color: red;
       margin: 10px;
     }
+
+    .toggle-switch {
+      width: 50px;
+      height: 25px;
+      position: relative;
+      display: inline-block;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.4s;
+      border-radius: 34px;
+    }
+
+    .toggle-slider:before {
+      content: "";
+      position: absolute;
+      height: 15px;
+      width: 15px;
+      border-radius: 50%;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: 0.4s;
+    }
+
+    input:checked + .toggle-slider {
+      background-color: #1db954;
+    }
+
+    input:checked + .toggle-slider:before {
+      transform: translateX(24px);
+    }
   </style>
 </head>
 <body>
@@ -82,12 +127,22 @@
   <div id="auth-status"></div>
   <input type="text" id="songInput" placeholder="Enter song name">
   <button id="searchBtn">Search</button>
+
+  <!-- Toggle for Auto-Play Next Song -->
+  <label class="toggle-switch">
+    <input type="checkbox" id="autoPlayToggle">
+    <span class="toggle-slider"></span>
+  </label>
+  <span>Auto-play Next Song</span>
+
   <div id="results"></div>
 
   <script>
     const clientId = 'cc1434a8593d4c71b9ad56af9b578d98'; // Replace with your actual Spotify Client ID
     const redirectUri = 'https://dazzling-bavarois-ed00a0.netlify.app'; // Replace with your actual Redirect URI
     let accessToken = null;
+    let autoPlayNext = false;  // Auto-play setting
+    let searchCache = {};  // Cache for search results
 
     function updateAuthStatus(message, isError = false) {
       const statusEl = document.getElementById('auth-status');
@@ -200,10 +255,56 @@
           // Add Embed Player
           const embedPlayer = createEmbedPlayer(track);
           trackDiv.appendChild(embedPlayer);
+
+          // Add Save Track Button
+          const saveBtn = document.createElement('button');
+          saveBtn.textContent = 'Save Track';
+          saveBtn.addEventListener('click', () => saveTrack(track));
+          trackDiv.appendChild(saveBtn);
+
           resultsDiv.appendChild(trackDiv);
         });
       });
+
+      // Handle auto-play toggle
+      document.getElementById('autoPlayToggle').addEventListener('change', (event) => {
+        autoPlayNext = event.target.checked;
+      });
     };
+
+    // Save track to localStorage
+    function saveTrack(track) {
+      let savedTracks = JSON.parse(localStorage.getItem('savedTracks')) || [];
+      // Avoid duplicates
+      if (!savedTracks.some(t => t.id === track.id)) {
+        savedTracks.push(track);
+        localStorage.setItem('savedTracks', JSON.stringify(savedTracks));
+        updateAuthStatus('Track saved successfully');
+      }
+    }
+
+    // Fetch and display saved tracks
+    function displaySavedTracks() {
+      const savedTracks = JSON.parse(localStorage.getItem('savedTracks')) || [];
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';  // Clear previous results
+
+      if (savedTracks.length === 0) {
+        resultsDiv.innerHTML = '<p>No saved tracks found</p>';
+        return;
+      }
+
+      savedTracks.forEach(track => {
+        const trackDiv = document.createElement('div');
+        trackDiv.innerHTML = `
+          <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
+          <p>Album: ${track.album.name}</p>
+        `;
+        const embedPlayer = createEmbedPlayer(track);
+        trackDiv.appendChild(embedPlayer);
+        resultsDiv.appendChild(trackDiv);
+      });
+    }
   </script>
 </body>
 </html>
