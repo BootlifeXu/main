@@ -6,7 +6,7 @@
   <title>Spotify Song Search and Playback</title>
   <style>
     /* (Same styling as before) */
-body {
+    body {
       font-family: Arial, sans-serif;
       margin: 0;
       padding: 0;
@@ -203,13 +203,16 @@ body {
     const redirectUri = 'https://dazzling-bavarois-ed00a0.netlify.app'; // Replace with your actual Redirect URI
     let accessToken = null;
     let offset = 0; // Pagination offset
+    let savedTracksOffset = 0; // Offset for saved tracks pagination
 
+    // Function to update authentication status
     function updateAuthStatus(message, isError = false) {
       const statusEl = document.getElementById('auth-status');
       statusEl.textContent = message;
       statusEl.className = isError ? 'error' : '';
     }
 
+    // Function to initiate Spotify authentication
     function initiateSpotifyAuth() {
       const scopes = [
         'user-library-read', // This scope is required to access saved tracks
@@ -227,6 +230,7 @@ body {
       window.location.href = authUrl;
     }
 
+    // Function to parse access token from URL
     function parseAccessToken() {
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
@@ -244,6 +248,7 @@ body {
       return false;
     }
 
+    // Function to search for songs on Spotify
     async function searchSong(songName) {
       if (!accessToken) {
         updateAuthStatus('Authentication required', true);
@@ -275,8 +280,14 @@ body {
       }
     }
 
-    // Fetch saved tracks
+    // Function to fetch saved tracks from Spotify
     async function fetchSavedTracks() {
+      // Check if saved tracks are already cached
+      const cachedSavedTracks = JSON.parse(localStorage.getItem('savedTracks'));
+      if (cachedSavedTracks) {
+        return cachedSavedTracks;
+      }
+
       if (!accessToken) {
         updateAuthStatus('Authentication required', true);
         initiateSpotifyAuth();
@@ -285,7 +296,7 @@ body {
 
       try {
         const response = await fetch(
-          `https://api.spotify.com/v1/me/tracks?limit=10`, // Fetch saved tracks with a limit of 10
+          `https://api.spotify.com/v1/me/tracks?limit=10&offset=${savedTracksOffset}`, // Fetch saved tracks with pagination
           {
             headers: {
               'Authorization': `Bearer ${accessToken}`
@@ -293,6 +304,8 @@ body {
           }
         );
         const data = await response.json();
+        // Cache the result to avoid unnecessary future requests
+        localStorage.setItem('savedTracks', JSON.stringify(data.items));
         return data.items;
       } catch (error) {
         console.error('Error fetching saved tracks:', error);
@@ -300,7 +313,7 @@ body {
       }
     }
 
-    // Create Embed Player for Tracks
+    // Function to create an embed player for a track
     function createEmbedPlayer(track) {
       const iframe = document.createElement('iframe');
       iframe.src = `https://open.spotify.com/embed/track/${track.id}`;
@@ -311,7 +324,7 @@ body {
       return iframe;
     }
 
-    // Display saved tracks with embedded players
+    // Function to display saved tracks with embedded players
     async function displaySavedTracks() {
       const savedTracksList = document.getElementById('savedTracksList');
       savedTracksList.innerHTML = ''; // Clear any previous content
@@ -385,18 +398,22 @@ body {
             <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
             <p>Album: ${track.album.name}</p>
           `;
+          // Add Embed Player
           const embedPlayer = createEmbedPlayer(track);
           trackDiv.appendChild(embedPlayer);
           resultsDiv.appendChild(trackDiv);
         });
       });
 
-      // Hamburger menu functionality
-      document.getElementById('hamburgerIcon').addEventListener('click', async () => {
+      // Hamburger menu for saved tracks
+      document.getElementById('hamburgerIcon').addEventListener('click', function() {
         const menuContainer = document.getElementById('menuContainer');
-        menuContainer.style.display = menuContainer.style.display === 'block' ? 'none' : 'block';
-
-        displaySavedTracks(); // Fetch and display saved tracks in the menu
+        if (menuContainer.style.display === 'none' || menuContainer.style.display === '') {
+          menuContainer.style.display = 'block';
+          displaySavedTracks(); // Fetch and display saved tracks when menu is opened
+        } else {
+          menuContainer.style.display = 'none';
+        }
       });
     };
   </script>
