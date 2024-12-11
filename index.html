@@ -198,9 +198,8 @@ body {
 
   <div id="results"></div>
   <button id="nextBtn" style="display: none;">Next</button>
-
-  <script>
-  const clientId = 'cc1434a8593d4c71b9ad56af9b578d98'; // Replace with your actual Spotify Client ID
+ <script>
+const clientId = 'cc1434a8593d4c71b9ad56af9b578d98'; // Replace with your actual Spotify Client ID
 const redirectUri = 'https://dazzling-bavarois-ed00a0.netlify.app'; // Replace with your actual Redirect URI
 let accessToken = null;
 let offset = 0; // Pagination offset
@@ -218,7 +217,7 @@ function updateAuthStatus(message, isError = false) {
 
 function initiateSpotifyAuth() {
   const scopes = [
-    'user-library-read', // This scope is required to access saved tracks
+    'user-library-read', 
     'user-read-playback-state',
     'user-modify-playback-state',
     'streaming',
@@ -268,8 +267,6 @@ async function searchSong(songName) {
     );
 
     if (!response.ok) {
-      const responseText = await response.text();
-      console.error('Search Error Details:', responseText);
       throw new Error('Search failed');
     }
 
@@ -281,116 +278,87 @@ async function searchSong(songName) {
   }
 }
 
-async function fetchSavedTracks() {
-  if (!accessToken) {
-    updateAuthStatus('Authentication required', true);
-    initiateSpotifyAuth();
-    return;
-  }
-
-  try {
-    const response = await fetch(
-      `https://api.spotify.com/v1/me/tracks?limit=10`, // Fetch saved tracks with a limit of 10
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      }
-    );
-    const data = await response.json();
-    return data.items;
-  } catch (error) {
-    console.error('Error fetching saved tracks:', error);
-    updateAuthStatus('Error fetching saved tracks', true);
-  }
-}
-
-function createEmbedPlayer(track) {
+function createEmbedPlayer(track, index) {
   const iframe = document.createElement('iframe');
   iframe.src = `https://open.spotify.com/embed/track/${track.id}`;
   iframe.width = '300';
   iframe.height = '80';
   iframe.frameBorder = '0';
   iframe.allow = 'encrypted-media';
+  iframe.id = `track-${index}`;
+  iframe.style.display = 'none'; // Hide initially
+  iframe.onload = () => {
+    if (index === currentTrackIndex && autoPlayEnabled) {
+      iframe.style.display = 'block';
+    }
+  }; // Ensure iframe is loaded and visible when autoplay starts
   return iframe;
 }
 
-async function displaySavedTracks() {
-  const savedTracksList = document.getElementById('savedTracksList');
-  savedTracksList.innerHTML = ''; // Clear any previous content
+function displayTracks(tracks) {
+  const resultsDiv = document.getElementById('results');
+  resultsDiv.innerHTML = ''; // Clear previous results
 
-  const savedTracks = await fetchSavedTracks();
-
-  if (savedTracks && savedTracks.length > 0) {
-    savedTracks.forEach(trackData => {
-      const track = trackData.track;
-      const listItem = document.createElement('li');
-      listItem.innerHTML = `
-        <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(', ')}</p>
-        <p>Album: ${track.album.name}</p>
-      `;
-      const embedPlayer = createEmbedPlayer(track);
-      listItem.appendChild(embedPlayer);
-      savedTracksList.appendChild(listItem);
-    });
-  } else {
-    savedTracksList.innerHTML = 'No saved tracks found.';
-  }
+  tracks.forEach((track, index) => {
+    const trackDiv = document.createElement('div');
+    trackDiv.innerHTML = `
+      <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
+      <p>Album: ${track.album.name}</p>
+    `;
+    const embedPlayer = createEmbedPlayer(track, index);
+    trackDiv.appendChild(embedPlayer);
+    resultsDiv.appendChild(trackDiv);
+  });
 }
 
-// Auto-play functions
 function playCurrentTrack() {
   if (currentTrackSet.length === 0) return;
 
-  // Hide all track iframes
   document.querySelectorAll('iframe').forEach(iframe => {
-    iframe.style.display = 'none';
+    iframe.style.display = 'none'; // Hide all other players
   });
 
-  // Show current track iframe
   const currentTrackIframe = document.getElementById(`track-${currentTrackIndex}`);
   if (currentTrackIframe) {
-    currentTrackIframe.style.display = 'block';
-  }
-
-  // Set up listener for track end
-  setupTrackEndListener();
-}
-
-function setupTrackEndListener() {
-  // Remove any existing listeners first
-  window.removeEventListener('message', handleTrackEnd);
-  
-  // Add new listener
-  window.addEventListener('message', handleTrackEnd);
-}
-
-function handleTrackEnd(event) {
-  // Spotify embed sends a message when track ends
-  if (event.origin !== 'https://open.spotify.com') return;
-
-  try {
-    const data = JSON.parse(event.data);
-    if (data.eventName === 'playback_ended') {
-      // Move to next track if auto-play is enabled
-      if (autoPlayEnabled) {
-        currentTrackIndex++;
-        
-        // If reached end of current track set, reset to first track
-        if (currentTrackIndex >= currentTrackSet.length) {
-          currentTrackIndex = 0;
-        }
-        
-        playCurrentTrack();
-      }
-    }
-  } catch (error) {
-    console.error('Error parsing message:', error);
+    currentTrackIframe.style.display = 'block'; // Display the current track's iframe
   }
 }
 
-// Window onload event handler
-window.onload = function() {
+async function handleSearch() {
+  const songName = document.getElementById('songInput').value;
+  if (!songName) {
+    updateAuthStatus('Please enter a song name', true);
+    return;
+  }
+
+  offset = 0;
+  currentTrackIndex = 0;
+
+  const tracks = await searchSong(songName);
+  currentTrackSet = tracks; // Update current track set
+  displayTracks(tracks);
+
+  if (autoPlayEnabled) {
+    playCurrentTrack();
+  }
+}
+
+async function handleNext() {
+  offset += 10;
+  const songName = document.getElementById('songInput').value;
+
+  const tracks = await searchSong(songName);
+  currentTrackSet = tracks;
+  currentTrackIndex = 0;
+
+  displayTracks(tracks);
+
+  if (autoPlayEnabled) {
+    playCurrentTrack();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
   if (!parseAccessToken()) {
     accessToken = localStorage.getItem('spotify_access_token');
     if (accessToken) {
@@ -400,91 +368,17 @@ window.onload = function() {
     }
   }
 
-  // Auto-play toggle functionality
+  document.getElementById('searchBtn').addEventListener('click', handleSearch);
+  document.getElementById('nextBtn').addEventListener('click', handleNext);
+
   const autoPlayToggle = document.getElementById('autoPlayToggle');
   autoPlayToggle.addEventListener('change', function() {
     autoPlayEnabled = this.checked;
-    if (autoPlayEnabled) {
-      // If auto-play is turned on and we have tracks, start auto-playing
-      if (currentTrackSet.length > 0) {
-        playCurrentTrack();
-      }
-    }
-  });
-
-  // Search button functionality
-  document.getElementById('searchBtn').addEventListener('click', async () => {
-    const songName = document.getElementById('songInput').value;
-    if (!songName) {
-      updateAuthStatus('Please enter a song name', true);
-      return;
-    }
-
-    // Reset tracking variables
-    offset = 0;
-    currentTrackIndex = 0;
-
-    const tracks = await searchSong(songName);
-    currentTrackSet = tracks; // Store the current set of tracks
-    const resultsDiv = document.getElementById('results');
-    resultsDiv.innerHTML = ''; // Clear previous results
-
-    tracks.forEach((track, index) => {
-      const trackDiv = document.createElement('div');
-      trackDiv.innerHTML = `
-        <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
-        <p>Album: ${track.album.name}</p>
-      `;
-      // Add Embed Player
-      const embedPlayer = createEmbedPlayer(track);
-      embedPlayer.id = `track-${index}`; // Add unique ID to each iframe
-      trackDiv.appendChild(embedPlayer);
-      resultsDiv.appendChild(trackDiv);
-    });
-
-    document.getElementById('nextBtn').style.display = 'block';
-
-    // If auto-play is enabled, start playing from the first track
-    if (autoPlayEnabled) {
+    if (autoPlayEnabled && currentTrackSet.length > 0) {
       playCurrentTrack();
     }
   });
-
-  // Next button functionality
-  document.getElementById('nextBtn').addEventListener('click', async () => {
-    offset += 10; // Increase offset to load next set of results
-    const songName = document.getElementById('songInput').value;
-    const tracks = await searchSong(songName);
-    currentTrackSet = tracks; // Update current track set
-    currentTrackIndex = 0; // Reset track index for new set
-
-    const resultsDiv = document.getElementById('results');
-    tracks.forEach((track, index) => {
-      const trackDiv = document.createElement('div');
-      trackDiv.innerHTML = `
-        <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
-        <p>Album: ${track.album.name}</p>
-      `;
-      const embedPlayer = createEmbedPlayer(track);
-      embedPlayer.id = `track-${index}`; // Add unique ID to each iframe
-      trackDiv.appendChild(embedPlayer);
-      resultsDiv.appendChild(trackDiv);
-    });
-
-    // If auto-play is enabled, start playing from the first track of new set
-    if (autoPlayEnabled) {
-      playCurrentTrack();
-    }
-  });
-
-  // Hamburger menu functionality
-  document.getElementById('hamburgerIcon').addEventListener('click', async () => {
-    const menuContainer = document.getElementById('menuContainer');
-    menuContainer.style.display = menuContainer.style.display === 'block' ? 'none' : 'block';
-
-    displaySavedTracks(); // Fetch and display saved tracks in the menu
-  });
-};
-  </script>
+});
+</script>
 </body>
 </html>
