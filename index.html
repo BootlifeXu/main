@@ -300,7 +300,18 @@ body {
       }
     }
 
-    // Display saved tracks in the sidebar
+    // Create Embed Player for Tracks
+    function createEmbedPlayer(track) {
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://open.spotify.com/embed/track/${track.id}`;
+      iframe.width = '300';
+      iframe.height = '80';
+      iframe.frameBorder = '0';
+      iframe.allow = 'encrypted-media';
+      return iframe;
+    }
+
+    // Display saved tracks with embedded players
     async function displaySavedTracks() {
       const savedTracksList = document.getElementById('savedTracksList');
       savedTracksList.innerHTML = ''; // Clear any previous content
@@ -311,7 +322,12 @@ body {
         savedTracks.forEach(trackData => {
           const track = trackData.track;
           const listItem = document.createElement('li');
-          listItem.innerHTML = `${track.name} by ${track.artists.map(artist => artist.name).join(', ')}`;
+          listItem.innerHTML = `
+            <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(', ')}</p>
+            <p>Album: ${track.album.name}</p>
+          `;
+          const embedPlayer = createEmbedPlayer(track);
+          listItem.appendChild(embedPlayer);
           savedTracksList.appendChild(listItem);
         });
       } else {
@@ -347,12 +363,8 @@ body {
             <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
             <p>Album: ${track.album.name}</p>
           `;
-          const embedPlayer = document.createElement('iframe');
-          embedPlayer.src = `https://open.spotify.com/embed/track/${track.id}`;
-          embedPlayer.width = '300';
-          embedPlayer.height = '80';
-          embedPlayer.frameBorder = '0';
-          embedPlayer.allow = 'encrypted-media';
+          // Add Embed Player
+          const embedPlayer = createEmbedPlayer(track);
           trackDiv.appendChild(embedPlayer);
           resultsDiv.appendChild(trackDiv);
         });
@@ -373,12 +385,7 @@ body {
             <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
             <p>Album: ${track.album.name}</p>
           `;
-          const embedPlayer = document.createElement('iframe');
-          embedPlayer.src = `https://open.spotify.com/embed/track/${track.id}`;
-          embedPlayer.width = '300';
-          embedPlayer.height = '80';
-          embedPlayer.frameBorder = '0';
-          embedPlayer.allow = 'encrypted-media';
+          const embedPlayer = createEmbedPlayer(track);
           trackDiv.appendChild(embedPlayer);
           resultsDiv.appendChild(trackDiv);
         });
