@@ -6,6 +6,171 @@
   <title>Spotify Song Search and Playback</title>
   <style>
     /* (Same styling as before) */
+body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f9;
+      color: #333;
+      text-align: center;
+      position: relative;
+    }
+
+    h1 {
+      background-color: #1db954;
+      color: white;
+      padding: 20px;
+      margin: 0;
+    }
+
+    input[type="text"] {
+      padding: 10px;
+      width: 50%;
+      border: 2px solid #1db954;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      font-size: 16px;
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: #1db954;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    button:hover {
+      background-color: #159443;
+    }
+
+    #results {
+      margin: 20px auto;
+      max-width: 800px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+
+    #results div {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      padding: 15px;
+      width: 300px;
+    }
+
+    #results p {
+      margin: 5px 0;
+      font-size: 14px;
+    }
+
+    iframe {
+      border-radius: 5px;
+    }
+
+    .error {
+      color: red;
+      margin: 10px;
+    }
+
+    /* Hamburger Menu Styles */
+    .hamburger-menu {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      cursor: pointer;
+      font-size: 30px;
+      z-index: 100;
+    }
+
+    .menu-container {
+      display: none;
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 300px;
+      height: 100%;
+      background-color: white;
+      box-shadow: -2px 0px 10px rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .menu-container ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .menu-container li {
+      margin: 15px 0;
+    }
+
+    #nextBtn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background-color: #159443;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 99;
+    }
+
+    #nextBtn:hover {
+      background-color: #128d3a;
+    }
+
+    .toggle-switch {
+      width: 50px;
+      height: 25px;
+      position: relative;
+      display: inline-block;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.4s;
+      border-radius: 34px;
+    }
+
+    .toggle-slider:before {
+      content: "";
+      position: absolute;
+      height: 15px;
+      width: 15px;
+      border-radius: 50%;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: 0.4s;
+    }
+
+    input:checked + .toggle-slider {
+      background-color: #1db954;
+    }
+
+    input:checked + .toggle-slider:before {
+      transform: translateX(24px);
+    }
   </style>
 </head>
 <body>
