@@ -120,6 +120,20 @@
     input:checked + .toggle-slider:before {
       transform: translateX(24px);
     }
+
+    #nextBtn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: #159443;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #nextBtn:hover {
+      background-color: #128d3a;
+    }
   </style>
 </head>
 <body>
@@ -136,6 +150,7 @@
   <span>Auto-play Next Song</span>
 
   <div id="results"></div>
+  <button id="nextBtn" style="display: none;">Next</button>
 
   <script>
     const clientId = 'cc1434a8593d4c71b9ad56af9b578d98'; // Replace with your actual Spotify Client ID
@@ -143,6 +158,7 @@
     let accessToken = null;
     let autoPlayNext = false;  // Auto-play setting
     let searchCache = {};  // Cache for search results
+    let offset = 0; // Pagination offset
 
     function updateAuthStatus(message, isError = false) {
       const statusEl = document.getElementById('auth-status');
@@ -193,7 +209,7 @@
 
       try {
         const response = await fetch(
-          `https://api.spotify.com/v1/search?q=${encodeURIComponent(songName)}&type=track&limit=10`,
+          `https://api.spotify.com/v1/search?q=${encodeURIComponent(songName)}&type=track&limit=10&offset=${offset}`,
           {
             headers: {
               'Authorization': `Bearer ${accessToken}`
@@ -242,28 +258,22 @@
           return;
         }
 
+        offset = 0; // Reset offset for new search
         const tracks = await searchSong(songName);
-        const resultsDiv = document.getElementById('results');
-        resultsDiv.innerHTML = ''; // Clear previous results
+        displayTracks(tracks);
+        document.getElementById('nextBtn').style.display = 'block';
+      });
 
-        tracks.forEach(track => {
-          const trackDiv = document.createElement('div');
-          trackDiv.innerHTML = `
-            <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
-            <p>Album: ${track.album.name}</p>
-          `;
-          // Add Embed Player
-          const embedPlayer = createEmbedPlayer(track);
-          trackDiv.appendChild(embedPlayer);
+      document.getElementById('nextBtn').addEventListener('click', async () => {
+        offset += 10; // Move to the next set of results
+        const songName = document.getElementById('songInput').value;
+        if (!songName) {
+          updateAuthStatus('Please enter a song name', true);
+          return;
+        }
 
-          // Add Save Track Button
-          const saveBtn = document.createElement('button');
-          saveBtn.textContent = 'Save Track';
-          saveBtn.addEventListener('click', () => saveTrack(track));
-          trackDiv.appendChild(saveBtn);
-
-          resultsDiv.appendChild(trackDiv);
-        });
+        const tracks = await searchSong(songName);
+        displayTracks(tracks);
       });
 
       // Handle auto-play toggle
@@ -272,29 +282,17 @@
       });
     };
 
-    // Save track to localStorage
-    function saveTrack(track) {
-      let savedTracks = JSON.parse(localStorage.getItem('savedTracks')) || [];
-      // Avoid duplicates
-      if (!savedTracks.some(t => t.id === track.id)) {
-        savedTracks.push(track);
-        localStorage.setItem('savedTracks', JSON.stringify(savedTracks));
-        updateAuthStatus('Track saved successfully');
-      }
-    }
-
-    // Fetch and display saved tracks
-    function displaySavedTracks() {
-      const savedTracks = JSON.parse(localStorage.getItem('savedTracks')) || [];
+    // Display tracks
+    function displayTracks(tracks) {
       const resultsDiv = document.getElementById('results');
       resultsDiv.innerHTML = '';  // Clear previous results
 
-      if (savedTracks.length === 0) {
-        resultsDiv.innerHTML = '<p>No saved tracks found</p>';
+      if (tracks.length === 0) {
+        resultsDiv.innerHTML = '<p>No tracks found</p>';
         return;
       }
 
-      savedTracks.forEach(track => {
+      tracks.forEach(track => {
         const trackDiv = document.createElement('div');
         trackDiv.innerHTML = `
           <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
