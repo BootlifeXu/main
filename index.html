@@ -64,7 +64,7 @@
 
     input[type="text"] {
       padding: 10px;
-      width: 40%;
+      width: 50%;
       border: 2px solid #1db954;
       border-radius: 5px;
       margin-bottom: 20px;
@@ -125,56 +125,24 @@
       margin: 20px 0;
     }
 
-    #nextBtn {
-      padding: 10px 20px;
-      background-color: #1db954;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 16px;
-      display: block;
-      margin: 20px auto;
-    }
-
-    #autoPlayToggle {
-      margin-left: 10px;
-      font-size: 16px;
-    }
-
-    .toggle-label {
-      display: flex;
-      align-items: center;
-    }
-
-    .toggle-checkbox {
-      width: 40px;
-      height: 20px;
-      border-radius: 50px;
-      background-color: #ccc;
+    /* Toggle button */
+    .toggle-container {
+      display: inline-block;
       position: relative;
+      margin-left: 20px;
+    }
+
+    .toggle-button {
+      width: 40px;
+      height: 40px;
+      background-color: red;
+      border-radius: 50%;
       cursor: pointer;
       transition: background-color 0.3s;
     }
 
-    .toggle-checkbox:before {
-      content: '';
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background-color: white;
-      transition: left 0.3s;
-    }
-
-    .toggle-checkbox.active {
-      background-color: #1db954;
-    }
-
-    .toggle-checkbox.active:before {
-      left: 20px;
+    .toggle-button.active {
+      background-color: green;
     }
   </style>
 </head>
@@ -191,13 +159,13 @@
   <div id="auth-status"></div>
   <input type="text" id="songInput" placeholder="Enter song name">
   <button id="searchBtn">Search</button>
-  <div class="toggle-label">
-    <span>Auto Play Next:</span>
-    <div id="autoPlayToggle" class="toggle-checkbox"></div>
-  </div>
   <div id="loading-spinner">Loading...</div>
   <div id="results"></div>
-  <button id="nextBtn" style="display:none;">Next</button>
+
+  <!-- Toggle button -->
+  <div class="toggle-container">
+    <div class="toggle-button" id="autoPlayToggle"></div>
+  </div>
 
   <script>
     const clientId = 'cc1434a8593d4c71b9ad56af9b578d98';
@@ -205,8 +173,7 @@
     let accessToken = null;
     let searchCache = {};  // Cache for search results
     let debounceTimer;
-    let offset = 0;  // For pagination
-    let autoPlayNext = false;  // Control autoplay state
+    let autoPlayNext = false; // Auto play next song flag
 
     function updateAuthStatus(message, isError = false) {
       const statusEl = document.getElementById('auth-status');
@@ -258,11 +225,31 @@
       spinner.style.display = show ? 'block' : 'none';
     }
 
-    async function searchSongs(query, offset = 0) {
+    async function getSavedTracks(offset = 0, limit = 20) {
       if (!checkTokenValidity()) return [];
 
+      try {
+        const response = await fetch(`https://api.spotify.com/v1/me/tracks?offset=${offset}&limit=${limit}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch saved tracks');
+
+        const data = await response.json();
+        return data.items.map(item => item.track);
+      } catch (error) {
+        updateAuthStatus(`Error fetching saved tracks: ${error.message}`, true);
+        return [];
+      }
+    }
+
+    async function searchSongs(query) {
+      if (searchCache[query]) return searchCache[query];  // Return from cache if already searched
+
       showSpinner(true);
-      const response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&offset=${offset}&limit=10`, {
+      const response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
@@ -270,15 +257,15 @@
       showSpinner(false);
 
       const data = await response.json();
+      searchCache[query] = data.tracks.items;
       return data.tracks.items;
     }
 
     function displaySearchResults(query) {
       const resultsDiv = document.getElementById('results');
-      const nextBtn = document.getElementById('nextBtn');
       resultsDiv.innerHTML = ''; // Clear previous results
 
-      searchSongs(query, offset).then(tracks => {
+      searchSongs(query).then(tracks => {
         if (tracks.length === 0) {
           resultsDiv.innerHTML = '<p>No tracks found</p>';
           return;
@@ -286,7 +273,7 @@
 
         tracks.forEach(track => {
           const trackDiv = document.createElement('div');
-          trackDiv.innerHTML = ` 
+          trackDiv.innerHTML = `
             <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
             <p>Album: ${track.album.name}</p>
           `;
@@ -306,41 +293,31 @@
               setTimeout(() => {
                 const nextTrack = tracks[tracks.indexOf(track) + 1];
                 if (nextTrack) {
-                  iframe.src = `https://open.spotify.com/embed/track/${nextTrack.id}`;
+                  window.location.href = `https://open.spotify.com/track/${nextTrack.id}`;
                 }
-              }, 1000);
+              }, 5000); // Auto-play next song after 5 seconds
             };
           }
         });
-
-        nextBtn.style.display = 'block'; // Show the next button if there are results
       });
     }
 
+    // Toggle auto-play functionality
+    document.getElementById('autoPlayToggle').addEventListener('click', () => {
+      autoPlayNext = !autoPlayNext;
+      const toggleButton = document.getElementById('autoPlayToggle');
+      toggleButton.classList.toggle('active', autoPlayNext);
+    });
+
+    // Event listeners
     document.getElementById('searchBtn').addEventListener('click', () => {
       const query = document.getElementById('songInput').value.trim();
-      if (query) {
-        displaySearchResults(query);
-      }
+      if (query) displaySearchResults(query);
     });
 
-    document.getElementById('autoPlayToggle').addEventListener('click', () => {
-      autoPlayNext = !autoPlayNext; // Toggle autoPlay state
-      const toggle = document.getElementById('autoPlayToggle');
-      toggle.classList.toggle('active'); // Toggle the visual state of the toggle button
-    });
-
-    document.getElementById('nextBtn').addEventListener('click', () => {
-      const query = document.getElementById('songInput').value.trim();
-      if (query) {
-        offset += 10; // Increment offset for next page of results
-        displaySearchResults(query);
-      }
-    });
-
-    // Initialize authentication
-    if (!parseAccessToken()) {
-      initiateSpotifyAuth();
+    // If access token exists, fetch user data
+    if (parseAccessToken()) {
+      document.getElementById('auth-status').textContent = 'Successfully authenticated';
     }
   </script>
 </body>
