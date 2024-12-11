@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -124,26 +125,6 @@
       font-size: 20px;
       margin: 20px 0;
     }
-
-    /* Toggle button */
-    .toggle-container {
-      display: inline-block;
-      position: relative;
-      margin-left: 20px;
-    }
-
-    .toggle-button {
-      width: 40px;
-      height: 40px;
-      background-color: red;
-      border-radius: 50%;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-
-    .toggle-button.active {
-      background-color: green;
-    }
   </style>
 </head>
 <body>
@@ -162,18 +143,12 @@
   <div id="loading-spinner">Loading...</div>
   <div id="results"></div>
 
-  <!-- Toggle button -->
-  <div class="toggle-container">
-    <div class="toggle-button" id="autoPlayToggle"></div>
-  </div>
-
   <script>
     const clientId = 'cc1434a8593d4c71b9ad56af9b578d98';
     const redirectUri = 'https://dazzling-bavarois-ed00a0.netlify.app';
     let accessToken = null;
     let searchCache = {};  // Cache for search results
     let debounceTimer;
-    let autoPlayNext = false; // Auto play next song flag
 
     function updateAuthStatus(message, isError = false) {
       const statusEl = document.getElementById('auth-status');
@@ -245,6 +220,35 @@
       }
     }
 
+    async function fetchAndDisplaySavedTracks(offset = 0, limit = 20) {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '<p>Loading saved tracks...</p>';
+
+      const tracks = await getSavedTracks(offset, limit);
+      if (tracks.length === 0 && offset === 0) {
+        resultsDiv.innerHTML = '<p>No saved tracks found</p>';
+        return;
+      }
+
+      tracks.forEach(track => {
+        const trackDiv = document.createElement('div');
+        trackDiv.innerHTML = `
+          <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
+          <p>Album: ${track.album.name}</p>
+        `;
+
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://open.spotify.com/embed/track/${track.id}`;
+        iframe.width = '100%';
+        iframe.height = '80';
+        iframe.frameBorder = '0';
+        iframe.allow = 'encrypted-media';
+
+        trackDiv.appendChild(iframe);
+        resultsDiv.appendChild(trackDiv);
+      });
+    }
+
     async function searchSongs(query) {
       if (searchCache[query]) return searchCache[query];  // Return from cache if already searched
 
@@ -287,37 +291,35 @@
 
           trackDiv.appendChild(iframe);
           resultsDiv.appendChild(trackDiv);
-
-          if (autoPlayNext) {
-            iframe.onload = () => {
-              setTimeout(() => {
-                const nextTrack = tracks[tracks.indexOf(track) + 1];
-                if (nextTrack) {
-                  window.location.href = `https://open.spotify.com/track/${nextTrack.id}`;
-                }
-              }, 5000); // Auto-play next song after 5 seconds
-            };
-          }
         });
       });
     }
 
-    // Toggle auto-play functionality
-    document.getElementById('autoPlayToggle').addEventListener('click', () => {
-      autoPlayNext = !autoPlayNext;
-      const toggleButton = document.getElementById('autoPlayToggle');
-      toggleButton.classList.toggle('active', autoPlayNext);
-    });
-
     // Event listeners
     document.getElementById('searchBtn').addEventListener('click', () => {
       const query = document.getElementById('songInput').value.trim();
-      if (query) displaySearchResults(query);
+      if (query) {
+        displaySearchResults(query);
+      }
     });
 
-    // If access token exists, fetch user data
-    if (parseAccessToken()) {
-      document.getElementById('auth-status').textContent = 'Successfully authenticated';
+    document.getElementById('songInput').addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const query = document.getElementById('songInput').value.trim();
+        if (query) {
+          displaySearchResults(query);
+        }
+      }, 300);  // Delay for debouncing
+    });
+
+    document.getElementById('showSavedTracks').addEventListener('click', () => {
+      fetchAndDisplaySavedTracks();
+    });
+
+    // Initialize authentication
+    if (!parseAccessToken()) {
+      initiateSpotifyAuth();
     }
   </script>
 </body>
