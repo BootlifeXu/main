@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Spotify Song Search and Playback</title>
   <style>
-    /* (Same styling as before) */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -28,7 +27,7 @@
       width: 50%;
       border: 2px solid #1db954;
       border-radius: 5px;
-      margin-bottom: 20px;
+      margin: 20px;
       font-size: 16px;
     }
 
@@ -40,6 +39,7 @@
       border-radius: 5px;
       cursor: pointer;
       font-size: 16px;
+      margin: 5px;
     }
 
     button:hover {
@@ -53,78 +53,67 @@
       flex-wrap: wrap;
       gap: 20px;
       justify-content: center;
+      padding: 0 20px;
     }
 
-    #results div {
+    .track-container {
       background: white;
       border: 1px solid #ddd;
       border-radius: 8px;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
       padding: 15px;
       width: 300px;
+      transition: transform 0.3s ease;
     }
 
-    #results p {
+    .track-container.playing {
+      transform: scale(1.02);
+      box-shadow: 0 4px 10px rgba(29, 185, 84, 0.3);
+    }
+
+    .track-info {
       margin: 5px 0;
       font-size: 14px;
     }
 
+    .track-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
     iframe {
       border-radius: 5px;
+      margin-top: 10px;
     }
 
     .error {
       color: red;
       margin: 10px;
-    }
-
-    /* Hamburger Menu Styles */
-    .hamburger-menu {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      cursor: pointer;
-      font-size: 30px;
-      z-index: 100;
-    }
-
-    .menu-container {
-      display: none;
-      position: fixed;
-      top: 0;
-      right: 0;
-      width: 300px;
-      height: 100%;
-      background-color: white;
-      box-shadow: -2px 0px 10px rgba(0, 0, 0, 0.3);
-      padding: 20px;
-      overflow-y: auto;
-    }
-
-    .menu-container ul {
-      list-style: none;
-      padding: 0;
-    }
-
-    .menu-container li {
-      margin: 15px 0;
-    }
-
-    #nextBtn {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      padding: 10px 20px;
-      background-color: #159443;
-      color: white;
-      border: none;
+      padding: 10px;
+      background-color: #ffe6e6;
       border-radius: 5px;
-      cursor: pointer;
-      z-index: 99;
     }
 
-    #nextBtn:hover {
-      background-color: #128d3a;
+    .success {
+      color: #1db954;
+      margin: 10px;
+      padding: 10px;
+      background-color: #e6ffe6;
+      border-radius: 5px;
+    }
+
+    #controls {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: white;
+      padding: 15px;
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
     }
 
     .toggle-switch {
@@ -171,51 +160,61 @@
     input:checked + .toggle-slider:before {
       transform: translateX(24px);
     }
+
+    .autoplay-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+    }
+
+    #nextBtn {
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <h1>JEROME R.</h1>
+  <h1>Spotify Player</h1>
   <div id="auth-status"></div>
-  <input type="text" id="songInput" placeholder="Enter song name">
-  <button id="searchBtn">Search</button>
-
-  <!-- Toggle for Auto-Play Next Song -->
-  <label class="toggle-switch">
-    <input type="checkbox" id="autoPlayToggle">
-    <span class="toggle-slider"></span>
-  </label>
-  <span>Auto-play Next Song</span>
-
-  <!-- Hamburger Menu Icon -->
-  <div class="hamburger-menu" id="hamburgerIcon">&#9776;</div>
-
-  <!-- Menu Container (hidden by default) -->
-  <div class="menu-container" id="menuContainer">
-    <h2>Your Saved Tracks</h2>
-    <ul id="savedTracksList"></ul>
+  
+  <div class="search-container">
+    <input type="text" id="songInput" placeholder="Enter song name">
+    <button id="searchBtn">Search</button>
   </div>
 
   <div id="results"></div>
-  <button id="nextBtn" style="display: none;">Next</button>
+
+  <div id="controls">
+    <button id="prevBtn">Previous</button>
+    <label class="autoplay-label">
+      <span>Auto-play</span>
+      <div class="toggle-switch">
+        <input type="checkbox" id="autoPlayToggle">
+        <span class="toggle-slider"></span>
+      </div>
+    </label>
+    <button id="nextBtn">Next</button>
+  </div>
 
   <script>
-    const clientId = 'cc1434a8593d4c71b9ad56af9b578d98'; 
-    const redirectUri = 'https://dazzling-bavarois-ed00a0.netlify.app'; 
+    const clientId = 'cc1434a8593d4c71b9ad56af9b578d98';
+    const redirectUri = 'https://dazzling-bavarois-ed00a0.netlify.app';
     let accessToken = null;
-    let offset = 0; 
+    let offset = 0;
     let currentTrackIndex = 0;
     let tracksList = [];
     let autoPlayEnabled = false;
+    let currentPlayingIframe = null;
 
     function updateAuthStatus(message, isError = false) {
       const statusEl = document.getElementById('auth-status');
       statusEl.textContent = message;
-      statusEl.className = isError ? 'error' : '';
+      statusEl.className = isError ? 'error' : 'success';
     }
 
     function initiateSpotifyAuth() {
       const scopes = [
-        'user-library-read', 
+        'user-library-read',
         'user-read-playback-state',
         'user-modify-playback-state',
         'streaming',
@@ -265,8 +264,6 @@
         );
 
         if (!response.ok) {
-          const responseText = await response.text();
-          console.error('Search Error Details:', responseText);
           throw new Error('Search failed');
         }
 
@@ -288,6 +285,42 @@
       return iframe;
     }
 
+    function updateTrackContainers() {
+      const containers = document.querySelectorAll('.track-container');
+      containers.forEach((container, index) => {
+        container.classList.toggle('playing', index === currentTrackIndex);
+      });
+    }
+
+    function playTrack(index) {
+      if (index < 0 || index >= tracksList.length) return;
+
+      // Stop current playing track
+      if (currentPlayingIframe) {
+        currentPlayingIframe.contentWindow.postMessage({ command: 'pause' }, '*');
+      }
+
+      currentTrackIndex = index;
+      const iframes = document.querySelectorAll('iframe');
+      currentPlayingIframe = iframes[index];
+
+      if (currentPlayingIframe) {
+        currentPlayingIframe.contentWindow.postMessage({ command: 'play' }, '*');
+        currentPlayingIframe.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      updateTrackContainers();
+      updateControls();
+    }
+
+    function updateControls() {
+      const prevBtn = document.getElementById('prevBtn');
+      const nextBtn = document.getElementById('nextBtn');
+
+      prevBtn.disabled = currentTrackIndex <= 0;
+      nextBtn.disabled = currentTrackIndex >= tracksList.length - 1;
+    }
+
     window.onload = function() {
       if (!parseAccessToken()) {
         accessToken = localStorage.getItem('spotify_access_token');
@@ -301,19 +334,33 @@
       const searchBtn = document.getElementById('searchBtn');
       const songInput = document.getElementById('songInput');
       const autoPlayToggle = document.getElementById('autoPlayToggle');
+      const prevBtn = document.getElementById('prevBtn');
       const nextBtn = document.getElementById('nextBtn');
+
+      // Handle messages from Spotify iframes
+      window.addEventListener('message', (event) => {
+        if (event.data && typeof event.data === 'object') {
+          // Handle track ended event
+          if (event.data.type === 'playback_update' && 
+              event.data.position === 0 && 
+              event.data.duration === 0 && 
+              autoPlayEnabled) {
+            if (currentTrackIndex < tracksList.length - 1) {
+              playTrack(currentTrackIndex + 1);
+            }
+          }
+        }
+      });
 
       autoPlayToggle.addEventListener('change', (event) => {
         autoPlayEnabled = event.target.checked;
-        if (autoPlayEnabled) {
-          nextBtn.style.display = 'none'; // Hide next button if auto-play is on
-        } else {
-          nextBtn.style.display = 'block'; // Show next button if auto-play is off
+        if (autoPlayEnabled && currentPlayingIframe) {
+          currentPlayingIframe.contentWindow.postMessage({ command: 'play' }, '*');
         }
       });
 
       searchBtn.addEventListener('click', async () => {
-        const songName = songInput.value;
+        const songName = songInput.value.trim();
         if (!songName) {
           updateAuthStatus('Please enter a song name', true);
           return;
@@ -321,41 +368,73 @@
 
         tracksList = await searchSong(songName);
         const resultsDiv = document.getElementById('results');
-        resultsDiv.innerHTML = ''; 
+        resultsDiv.innerHTML = '';
 
         tracksList.forEach((track, index) => {
           const trackDiv = document.createElement('div');
+          trackDiv.className = 'track-container';
+          
           trackDiv.innerHTML = `
-            <p><strong>${track.name}</strong> by ${track.artists.map(artist => artist.name).join(", ")}</p>
-            <p>Album: ${track.album.name}</p>
+            <div class="track-info">
+              <div class="track-title">${track.name}</div>
+              <div>${track.artists.map(artist => artist.name).join(", ")}</div>
+              <div>Album: ${track.album.name}</div>
+            </div>
           `;
+
           const embedPlayer = createEmbedPlayer(track);
+          embedPlayer.addEventListener('load', () => {
+            if (index === currentTrackIndex && autoPlayEnabled) {
+              currentPlayingIframe = embedPlayer;
+              embedPlayer.contentWindow.postMessage({ command: 'play' }, '*');
+            }
+          });
+
           trackDiv.appendChild(embedPlayer);
           resultsDiv.appendChild(trackDiv);
         });
 
         currentTrackIndex = 0;
-        playTrack(currentTrackIndex);
-        nextBtn.style.display = 'block';
+        updateTrackContainers();
+        updateControls();
+      });
+
+      prevBtn.addEventListener('click', () => {
+        if (currentTrackIndex > 0) {
+          playTrack(currentTrackIndex - 1);
+        }
       });
 
       nextBtn.addEventListener('click', () => {
         if (currentTrackIndex < tracksList.length - 1) {
-          currentTrackIndex++;
-          playTrack(currentTrackIndex);
+          playTrack(currentTrackIndex + 1);
         }
       });
 
-      function playTrack(index) {
-        const track = tracksList[index];
-        const iframe = document.querySelectorAll('iframe')[index];
-
-        if (autoPlayEnabled) {
-          iframe.addEventListener('load', () => {
-            iframe.contentWindow.postMessage({type: 'play'}, '*');
-          });
+      // Handle keyboard controls
+      document.addEventListener('keydown', (event) => {
+        if (event.code === 'Space') {
+          event.preventDefault();
+          if (currentPlayingIframe) {
+            currentPlayingIframe.contentWindow.postMessage({ command: 'toggle' }, '*');
+          }
+        } else if (event.code === 'ArrowLeft') {
+          if (currentTrackIndex > 0) {
+            playTrack(currentTrackIndex - 1);
+          }
+        } else if (event.code === 'ArrowRight') {
+          if (currentTrackIndex < tracksList.length - 1) {
+            playTrack(currentTrackIndex + 1);
+          }
         }
-      }
+      });
+
+      // Enable search on Enter key
+      songInput.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+          searchBtn.click();
+        }
+      });
     };
   </script>
 </body>
