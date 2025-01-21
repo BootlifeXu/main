@@ -339,14 +339,11 @@
 
       // Handle messages from Spotify iframes
       window.addEventListener('message', (event) => {
-        if (event.data && typeof event.data === 'object') {
+        if (event.data && event.data.type === 'playback_update') {
           // Handle track ended event
-          if (event.data.type === 'playback_update' && 
-              event.data.position === 0 && 
-              event.data.duration === 0 && 
-              autoPlayEnabled) {
+          if (event.data.position === 0 && event.data.duration === 0 && autoPlayEnabled) {
             if (currentTrackIndex < tracksList.length - 1) {
-              playTrack(currentTrackIndex + 1);
+              playTrack(currentTrackIndex + 1); // Play the next track
             }
           }
         }
